@@ -1,0 +1,22 @@
+{
+  "name": "Static HTML Site",
+  "description": "Configuration for vanilla HTML/CSS/JS sites",
+  "preset": "static-html",
+  "config": {
+    "spa_mode": false,
+    "build_command": "",
+    "build_dir": ".",
+    "index_document": "index.html",
+    "error_document": "error.html",
+    "exclude_patterns": [
+      "node_modules/*",
+      ".git/*",
+      ".env*",
+      "*.md",
+      "package*.json"
+    ],
+    "github_workflow": {
+      "build_steps": []
+    }
+  }
+}

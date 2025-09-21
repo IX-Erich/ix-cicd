@@ -1,0 +1,42 @@
+{
+  "name": "React Single Page Application",
+  "description": "Configuration for React apps with client-side routing",
+  "preset": "react-spa",
+  "config": {
+    "spa_mode": true,
+    "build_command": "npm run build",
+    "build_dir": "build",
+    "index_document": "index.html",
+    "error_document": "index.html",
+    "exclude_patterns": [
+      "src/*",
+      "public/*", 
+      "node_modules/*",
+      "package-lock.json",
+      "yarn.lock",
+      ".env*",
+      "*.config.js",
+      "*.config.ts"
+    ],
+    "github_workflow": {
+      "build_steps": [
+        {
+          "name": "Setup Node.js",
+          "uses": "actions/setup-node@v4",
+          "with": {
+            "node-version": "18",
+            "cache": "npm"
+          }
+        },
+        {
+          "name": "Install dependencies",
+          "run": "npm ci"
+        },
+        {
+          "name": "Build application",
+          "run": "npm run build"
+        }
+      ]
+    }
+  }
+}
