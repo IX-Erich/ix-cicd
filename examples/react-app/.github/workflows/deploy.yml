@@ -1,0 +1,74 @@
+name: Deploy React App
+
+on:
+  push:
+    branches: [ main, 'feature/*', 'hotfix/*', 'release/*' ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize ]
+  delete:
+    branches: [ 'feature/*', 'hotfix/*', 'release/*' ]
+
+jobs:
+  deploy:
+    if: github.event_name != 'delete'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci --prefer-offline --no-audit
+    
+    - name: Run tests
+      run: npm test -- --coverage --watchAll=false
+      env:
+        CI: true
+    
+    - name: Build React app
+      run: |
+        # Set environment for build
+        echo "REACT_APP_VERSION=$(node -p require('./package.json').version)" >> .env.production
+        echo "REACT_APP_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> .env.production
+        
+        # Build with warnings as warnings (not errors)
+        CI=false npm run build
+        
+        # Optional: Remove source maps in production (saves bandwidth)
+        # find build -name "*.map" -delete
+        
+        # Verify build output
+        test -f build/index.html || exit 1
+        test -d build/static || exit 1
+    
+    - name: Deploy Static Site
+      uses: IX-Erich/ix-cicd/reusable-actions/static-site-deploy@main
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        s3-bucket: 'my-react-app.imaginariax.com'
+        cloudfront-distribution-id: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        build-dir: 'build'
+        spa-mode: 'true'
+        exclude-patterns: '["*.map", "coverage/*"]'
+
+  cleanup:
+    if: github.event_name == 'delete' && startsWith(github.event.ref, 'feature/')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Cleanup Feature Branch Deployment
+      uses: IX-Erich/ix-cicd/reusable-actions/static-site-cleanup@main
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        s3-bucket: 'my-react-app.imaginariax.com'
+        cloudfront-distribution-id: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        branch-name: ${{ github.event.ref }}

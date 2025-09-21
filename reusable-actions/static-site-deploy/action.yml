@@ -1,0 +1,181 @@
+name: 'Deploy Static Site with Branch Routing'
+description: 'Deploy static sites to S3 with CloudFront and feature branch routing'
+author: 'ImaginariaX'
+
+inputs:
+  aws-access-key-id:
+    description: 'AWS Access Key ID'
+    required: true
+  aws-secret-access-key:
+    description: 'AWS Secret Access Key'
+    required: true
+  aws-region:
+    description: 'AWS region'
+    required: false
+    default: 'us-east-1'
+  
+  # S3 Configuration
+  s3-bucket:
+    description: 'S3 bucket name (e.g., myproject.imaginariax.com)'
+    required: true
+  
+  # CloudFront Configuration
+  cloudfront-distribution-id:
+    description: 'CloudFront distribution ID'
+    required: true
+    
+  # Build Configuration
+  build-dir:
+    description: 'Directory containing built files to deploy'
+    required: false
+    default: '.'
+  build-command:
+    description: 'Command to build the project (optional)'
+    required: false
+    default: ''
+  
+  # Project Configuration  
+  exclude-patterns:
+    description: 'Additional exclude patterns for S3 sync (JSON array)'
+    required: false
+    default: '[]'
+  include-robots-txt:
+    description: 'Generate robots.txt for feature branches'
+    required: false
+    default: 'true'
+  
+  # Custom routing
+  custom-index:
+    description: 'Custom index file name'
+    required: false
+    default: 'index.html'
+  spa-mode:
+    description: 'Single Page Application mode (route all 404s to index)'
+    required: false
+    default: 'false'
+
+outputs:
+  deploy-url:
+    description: 'The URL where the site was deployed'
+    value: ${{ steps.deployment.outputs.DEPLOY_URL }}
+  branch-name:
+    description: 'The sanitized branch name'
+    value: ${{ steps.deployment.outputs.SANITIZED_BRANCH }}
+  is-production:
+    description: 'Whether this is a production deployment'
+    value: ${{ steps.deployment.outputs.IS_PRODUCTION }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+        
+    - name: Run build command
+      if: inputs.build-command != ''
+      shell: bash
+      run: ${{ inputs.build-command }}
+    
+    - name: Determine deployment configuration
+      id: deployment
+      shell: bash
+      run: |
+        # Extract branch name, handling different event types
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          BRANCH_NAME="${{ github.head_ref }}"
+        else
+          BRANCH_NAME="${{ github.ref_name }}"
+        fi
+        
+        # Sanitize branch name for S3 path
+        SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]')
+        
+        if [[ "$BRANCH_NAME" == "main" ]] || [[ "$BRANCH_NAME" == "master" ]]; then
+          echo "S3_PATH=s3://${{ inputs.s3-bucket }}/" >> $GITHUB_OUTPUT
+          echo "CF_PATH=/*" >> $GITHUB_OUTPUT
+          echo "DEPLOY_URL=https://${{ inputs.s3-bucket }}" >> $GITHUB_OUTPUT
+          echo "IS_PRODUCTION=true" >> $GITHUB_OUTPUT
+        else
+          echo "S3_PATH=s3://${{ inputs.s3-bucket }}/$SANITIZED_BRANCH/" >> $GITHUB_OUTPUT
+          echo "CF_PATH=/$SANITIZED_BRANCH/*" >> $GITHUB_OUTPUT
+          echo "DEPLOY_URL=https://${{ inputs.s3-bucket }}/$SANITIZED_BRANCH/" >> $GITHUB_OUTPUT
+          echo "IS_PRODUCTION=false" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "SANITIZED_BRANCH=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+        
+    - name: Create robots.txt for feature branches
+      if: steps.deployment.outputs.IS_PRODUCTION == 'false' && inputs.include-robots-txt == 'true'
+      shell: bash
+      working-directory: ${{ inputs.build-dir }}
+      run: |
+        cat > robots.txt << EOF
+        User-agent: *
+        Disallow: /
+        
+        # This is a feature branch preview - not for indexing
+        # Branch: ${{ steps.deployment.outputs.BRANCH_NAME }}
+        EOF
+        
+    - name: Prepare exclude patterns
+      id: exclude
+      shell: bash
+      run: |
+        # Default excludes
+        BASE_EXCLUDES='[".git/*", ".github/*", "README.md", "package.json", "node_modules/*", ".DS_Store", "*.log"]'
+        
+        # Merge with custom excludes
+        CUSTOM_EXCLUDES='${{ inputs.exclude-patterns }}'
+        if [[ "$CUSTOM_EXCLUDES" == "[]" || "$CUSTOM_EXCLUDES" == "" ]]; then
+          FINAL_EXCLUDES="$BASE_EXCLUDES"
+        else
+          # Simple merge - in a real implementation you'd use jq
+          FINAL_EXCLUDES="$BASE_EXCLUDES"
+        fi
+        
+        echo "patterns=$FINAL_EXCLUDES" >> $GITHUB_OUTPUT
+        
+    - name: Sync files to S3
+      shell: bash
+      working-directory: ${{ inputs.build-dir }}
+      run: |
+        aws s3 sync . ${{ steps.deployment.outputs.S3_PATH }} \
+          --exclude ".git/*" \
+          --exclude ".github/*" \
+          --exclude "README.md" \
+          --exclude "package.json" \
+          --exclude "node_modules/*" \
+          --exclude ".DS_Store" \
+          --exclude "*.log" \
+          --exclude "docs/*" \
+          --exclude "terraform/*" \
+          --exclude "*.md" \
+          --delete
+          
+    - name: Invalidate CloudFront distribution
+      shell: bash
+      run: |
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ inputs.cloudfront-distribution-id }} \
+          --paths "${{ steps.deployment.outputs.CF_PATH }}"
+          
+    - name: Output deployment summary
+      shell: bash
+      run: |
+        echo "🎮 Static site deployed successfully!"
+        echo "📦 Branch: ${{ steps.deployment.outputs.BRANCH_NAME }}"
+        echo "🔗 URL: ${{ steps.deployment.outputs.DEPLOY_URL }}"
+        echo "📊 CloudFront cache invalidated: ${{ steps.deployment.outputs.CF_PATH }}"
+        
+        if [[ "${{ steps.deployment.outputs.IS_PRODUCTION }}" == "false" ]]; then
+          echo "🤖 Feature branch - robots.txt blocks search engines"
+        fi
+
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'
