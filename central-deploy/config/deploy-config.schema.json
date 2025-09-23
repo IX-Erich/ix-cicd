@@ -1,0 +1,273 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://imaginariax.com/schemas/deploy-config.json",
+  "title": "IX Static Site Deployment Configuration",
+  "description": "Configuration schema for centralized static site deployments",
+  "type": "object",
+  "required": ["version", "projects"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["1.0"],
+      "description": "Configuration schema version"
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default settings applied to all projects",
+      "properties": {
+        "aws_region": {
+          "type": "string",
+          "default": "us-east-1"
+        },
+        "environment": {
+          "type": "string",
+          "default": "production"
+        },
+        "spa_mode": {
+          "type": "boolean",
+          "default": false
+        },
+        "include_robots_txt": {
+          "type": "boolean",
+          "default": true
+        },
+        "auto_deploy": {
+          "type": "boolean",
+          "default": true
+        },
+        "build_timeout": {
+          "type": "integer",
+          "default": 300,
+          "description": "Build timeout in seconds"
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "description": "Credential configurations",
+      "properties": {
+        "aws_profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "access_key_id", "secret_access_key"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Profile name for reference"
+              },
+              "access_key_id": {
+                "type": "string"
+              },
+              "secret_access_key": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string",
+                "default": "us-east-1"
+              }
+            }
+          }
+        },
+        "github_tokens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "token"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Token name for reference"
+              },
+              "token": {
+                "type": "string"
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "repository", "domain_name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Unique project identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable project name"
+          },
+          "description": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "object",
+            "required": ["url"],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://github\\.com/[^/]+/[^/]+(\\.git)?$"
+              },
+              "branch": {
+                "type": "string",
+                "default": "main"
+              },
+              "private": {
+                "type": "boolean",
+                "default": false
+              },
+              "github_token_ref": {
+                "type": "string",
+                "description": "Reference to github_tokens array by name"
+              }
+            }
+          },
+          "deployment": {
+            "type": "object",
+            "required": ["domain_name"],
+            "properties": {
+              "domain_name": {
+                "type": "string",
+                "format": "hostname"
+              },
+              "aws_profile_ref": {
+                "type": "string",
+                "description": "Reference to aws_profiles array by name"
+              },
+              "environment": {
+                "type": "string",
+                "enum": ["development", "staging", "production"]
+              },
+              "spa_mode": {
+                "type": "boolean"
+              },
+              "custom_index": {
+                "type": "string",
+                "default": "index.html"
+              },
+              "include_robots_txt": {
+                "type": "boolean"
+              },
+              "auto_deploy": {
+                "type": "boolean"
+              }
+            }
+          },
+          "build": {
+            "type": "object",
+            "properties": {
+              "framework": {
+                "type": "string",
+                "enum": ["react", "vue", "angular", "jekyll", "gatsby", "nextjs", "static", "custom"]
+              },
+              "node_version": {
+                "type": "string",
+                "default": "18"
+              },
+              "package_manager": {
+                "type": "string",
+                "enum": ["npm", "yarn", "pnpm"],
+                "default": "npm"
+              },
+              "build_command": {
+                "type": "string"
+              },
+              "build_dir": {
+                "type": "string",
+                "description": "Directory containing built files"
+              },
+              "install_command": {
+                "type": "string"
+              },
+              "exclude_patterns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "environment_variables": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "timeout": {
+                "type": "integer",
+                "description": "Build timeout in seconds"
+              }
+            }
+          },
+          "notifications": {
+            "type": "object",
+            "properties": {
+              "slack": {
+                "type": "object",
+                "properties": {
+                  "webhook_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "channel": {
+                    "type": "string"
+                  }
+                }
+              },
+              "email": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "email"
+                }
+              }
+            }
+          },
+          "monitoring": {
+            "type": "object",
+            "properties": {
+              "health_check_path": {
+                "type": "string",
+                "default": "/"
+              },
+              "uptime_monitoring": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "tags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "paused", "archived"],
+            "default": "active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

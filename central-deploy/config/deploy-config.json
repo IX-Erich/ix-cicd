@@ -1,0 +1,204 @@
+{
+  "version": "1.0",
+  "defaults": {
+    "aws_region": "us-east-1",
+    "environment": "production",
+    "spa_mode": false,
+    "include_robots_txt": true,
+    "auto_deploy": true,
+    "build_timeout": 300
+  },
+  "credentials": {
+    "aws_profiles": [
+      {
+        "name": "default",
+        "access_key_id": "${AWS_ACCESS_KEY_ID}",
+        "secret_access_key": "${AWS_SECRET_ACCESS_KEY}",
+        "region": "us-east-1"
+      },
+      {
+        "name": "staging",
+        "access_key_id": "${STAGING_AWS_ACCESS_KEY_ID}",
+        "secret_access_key": "${STAGING_AWS_SECRET_ACCESS_KEY}",
+        "region": "us-east-1"
+      }
+    ],
+    "github_tokens": [
+      {
+        "name": "default",
+        "token": "${GITHUB_TOKEN}",
+        "scopes": ["repo", "workflow"]
+      },
+      {
+        "name": "org-token",
+        "token": "${GITHUB_ORG_TOKEN}",
+        "scopes": ["repo", "workflow", "admin:org"]
+      }
+    ]
+  },
+  "projects": [
+    {
+      "id": "my-react-app",
+      "name": "My React Application",
+      "description": "A modern React application with routing",
+      "repository": {
+        "url": "https://github.com/myorg/my-react-app",
+        "branch": "main",
+        "private": false,
+        "github_token_ref": "default"
+      },
+      "deployment": {
+        "domain_name": "myapp.imaginariax.com",
+        "aws_profile_ref": "default",
+        "environment": "production",
+        "spa_mode": true,
+        "custom_index": "index.html",
+        "include_robots_txt": true,
+        "auto_deploy": true
+      },
+      "build": {
+        "framework": "react",
+        "node_version": "18",
+        "package_manager": "npm",
+        "build_command": "npm run build",
+        "build_dir": "build",
+        "install_command": "npm ci",
+        "exclude_patterns": [
+          "*.md",
+          "docs/*",
+          ".env*"
+        ],
+        "environment_variables": {
+          "REACT_APP_API_URL": "https://api.imaginariax.com",
+          "GENERATE_SOURCEMAP": "false"
+        },
+        "timeout": 600
+      },
+      "notifications": {
+        "slack": {
+          "webhook_url": "${SLACK_WEBHOOK_URL}",
+          "channel": "#deployments"
+        },
+        "email": [
+          "dev@imaginariax.com"
+        ]
+      },
+      "monitoring": {
+        "health_check_path": "/health",
+        "uptime_monitoring": true
+      },
+      "tags": {
+        "Team": "Frontend",
+        "Owner": "DevOps",
+        "CostCenter": "Engineering"
+      },
+      "status": "active",
+      "created_at": "2025-09-23T02:36:17Z",
+      "updated_at": "2025-09-23T02:36:17Z"
+    },
+    {
+      "id": "company-blog",
+      "name": "Company Blog",
+      "description": "Jekyll-based company blog",
+      "repository": {
+        "url": "https://github.com/myorg/company-blog",
+        "branch": "main",
+        "private": false,
+        "github_token_ref": "default"
+      },
+      "deployment": {
+        "domain_name": "blog.imaginariax.com",
+        "aws_profile_ref": "default",
+        "environment": "production",
+        "spa_mode": false,
+        "custom_index": "index.html",
+        "include_robots_txt": false,
+        "auto_deploy": true
+      },
+      "build": {
+        "framework": "jekyll",
+        "node_version": "18",
+        "package_manager": "npm",
+        "build_command": "bundle exec jekyll build",
+        "build_dir": "_site",
+        "install_command": "bundle install",
+        "exclude_patterns": [
+          "_posts/*.draft.md",
+          "Gemfile*"
+        ],
+        "environment_variables": {
+          "JEKYLL_ENV": "production"
+        },
+        "timeout": 300
+      },
+      "notifications": {
+        "email": [
+          "marketing@imaginariax.com"
+        ]
+      },
+      "monitoring": {
+        "health_check_path": "/",
+        "uptime_monitoring": true
+      },
+      "tags": {
+        "Team": "Marketing",
+        "Owner": "Marketing",
+        "CostCenter": "Marketing"
+      },
+      "status": "active",
+      "created_at": "2025-09-23T02:36:17Z",
+      "updated_at": "2025-09-23T02:36:17Z"
+    },
+    {
+      "id": "staging-app",
+      "name": "Staging Application",
+      "description": "Staging environment for testing",
+      "repository": {
+        "url": "https://github.com/myorg/my-react-app",
+        "branch": "develop",
+        "private": false,
+        "github_token_ref": "default"
+      },
+      "deployment": {
+        "domain_name": "staging-myapp.imaginariax.com",
+        "aws_profile_ref": "staging",
+        "environment": "staging",
+        "spa_mode": true,
+        "custom_index": "index.html",
+        "include_robots_txt": true,
+        "auto_deploy": true
+      },
+      "build": {
+        "framework": "react",
+        "node_version": "18",
+        "package_manager": "npm",
+        "build_command": "npm run build:staging",
+        "build_dir": "build",
+        "install_command": "npm ci",
+        "exclude_patterns": [
+          "*.md",
+          "docs/*"
+        ],
+        "environment_variables": {
+          "REACT_APP_API_URL": "https://staging-api.imaginariax.com",
+          "GENERATE_SOURCEMAP": "true"
+        },
+        "timeout": 600
+      },
+      "notifications": {
+        "slack": {
+          "webhook_url": "${SLACK_WEBHOOK_URL}",
+          "channel": "#staging-deployments"
+        }
+      },
+      "tags": {
+        "Team": "Frontend",
+        "Owner": "DevOps",
+        "Environment": "Staging"
+      },
+      "status": "active",
+      "created_at": "2025-09-23T02:36:17Z",
+      "updated_at": "2025-09-23T02:36:17Z"
+    }
+  ]
+}
